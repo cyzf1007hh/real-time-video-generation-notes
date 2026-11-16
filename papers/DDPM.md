@@ -10,7 +10,7 @@
 
 其实，生成开始时，下面并没有藏着一张完整的画。DDPM 要做的，是利用从大量图片中学到的规律，一步步生成一张新图。
 
-这篇笔记就从这里讲起。不需要先懂概率论，也不用一上来记符号。先顺着小房子的例子看，遇到想深究的地方，再展开公式。
+这篇笔记就从这里讲起。不需要先懂概率论，也不用一上来记符号。先顺着小房子的例子看，遇到想深究的地方，再往下读进阶推导。
 
 <p align="center"><a href="#start">先看直觉</a> · <a href="#train">它怎么学</a> · <a href="#generate">它怎么画</a> · <a href="#math">再看公式</a> · <a href="#dmd">走向 DMD</a></p>
 
@@ -139,9 +139,11 @@ loss.backward()
 
 数学写法是：
 
-$$
-x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon.
-$$
+```math
+x_t=\sqrt{\bar\alpha_t}\times x_0+\sqrt{1-\bar\alpha_t}\times \epsilon.
+```
+
+这里的 $\times$ 就是乘号：先分别缩放原图和噪声，再把两项相加。论文里通常会省略这些乘号。
 
 先把 $\bar\alpha_t$ 当成一个逐渐从接近 1 降到接近 0 的旋钮。旋钮大，原图影响大；旋钮小，噪声影响大。
 
@@ -151,9 +153,9 @@ $$
 
 ### 第二条：怎么判断网络猜得好不好？
 
-$$
-L=\mathbb E\left[\|\epsilon-\epsilon_\theta(x_t,t)\|^2\right].
-$$
+```math
+L=\mathbb E\left[\lVert\epsilon-\epsilon_\theta(x_t,t)\rVert^2\right].
+```
 
 从里往外读：
 
@@ -168,76 +170,74 @@ $$
 
 把第一条公式移一下项：
 
-$$
+```math
 \hat x_0=
-\frac{x_t-\sqrt{1-\bar\alpha_t}\,\epsilon_\theta(x_t,t)}{\sqrt{\bar\alpha_t}}.
-$$
+\frac{x_t-\sqrt{1-\bar\alpha_t}\times \epsilon_\theta(x_t,t)}{\sqrt{\bar\alpha_t}}.
+```
 
 头上的小帽子表示“估计”，不是保证正确的答案。它做两件事：减去估计的噪声，再补偿原图之前被缩小的幅度。
 
 这也说明，网络预测的是噪声，但我们可以把输出转换成原图估计。读 DMD 代码时，你会再次遇到这个转换。
 
-<details>
-<summary><strong>进阶：旋钮从哪来？为什么系数带平方根？</strong></summary>
+### 进阶：旋钮从哪来？为什么系数带平方根？
 
 DDPM 先规定每一步加入多少噪声。设这个方差为 $\beta_t$，并定义：
 
-$$
+```math
 \alpha_t=1-\beta_t,\qquad
 \bar\alpha_t=\prod_{s=1}^{t}\alpha_s.
-$$
+```
 
 单步加噪写作：
 
-$$
-x_t=\sqrt{\alpha_t}x_{t-1}+\sqrt{1-\alpha_t}\epsilon_t.
-$$
+```math
+x_t=\sqrt{\alpha_t}\times x_{t-1}+\sqrt{1-\alpha_t}\times\epsilon_t.
+```
 
 “方差”描述随机波动的大小。给一个随机变量乘以系数 c，它的方差会乘以 c 的平方，所以这里使用平方根控制方差。
 
 展开前两步：
 
-$$
+```math
 x_2=\sqrt{\alpha_2\alpha_1}x_0+
 \sqrt{\alpha_2(1-\alpha_1)}\epsilon_1+
 \sqrt{1-\alpha_2}\epsilon_2.
-$$
+```
 
 独立高斯噪声相加仍是高斯噪声。后两项的方差相加得到：
 
-$$
+```math
 \alpha_2(1-\alpha_1)+(1-\alpha_2)=1-\alpha_2\alpha_1.
-$$
+```
 
 继续展开，就得到直接采样任意 $x_t$ 的公式。这里合并后的 $\epsilon$ 是累计噪声的等价表示，不是最后一步单独加入的 $\epsilon_t$。
 
 **读论文时注意记号**：本篇沿用 DDPM 的 $\alpha_t$。另一篇论文若直接写 $x_t=a_t x_0+b_t\epsilon$，那么 $a_t$ 对应这里的 $\sqrt{\bar\alpha_t}$，不要只看字母相似就直接替换。
 
-</details>
 
-<details>
-<summary><strong>进阶：生成时每一步究竟怎么算？</strong></summary>
+
+### 进阶：生成时每一步究竟怎么算？
 
 先从标准高斯分布随机生成 $x_T$，再按 $t=T,\ldots,1$ 更新。网络给出噪声预测后，下一步的均值是：
 
-$$
+```math
 \mu_\theta(x_t,t)=\frac{1}{\sqrt{\alpha_t}}
 \left(x_t-\frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\epsilon_\theta(x_t,t)\right).
-$$
+```
 
 然后抽取下一步：
 
-$$
+```math
 x_{t-1}=\mu_\theta(x_t,t)+\sigma_t z,\qquad z\sim\mathcal N(0,I).
-$$
+```
 
 最后一步通常令 z 为零。固定方差的一种选择是：
 
-$$
+```math
 \sigma_t^2=\tilde\beta_t=
 \frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}\beta_t,
 \qquad\bar\alpha_0=1.
-$$
+```
 
 它来自已知原图时的高斯后验 $q(x_{t-1}\mid x_t,x_0)$；生成时原图未知，用模型估计来构造反向转移。这里的条件不能省略：只知道带噪图时，真实的反向分布一般并不严格是单个高斯。
 
@@ -252,7 +252,7 @@ for t in 从最大等级走到最小等级():
 
 这段循环不更新模型参数，只反复调用同一个网络。简单把随机项全部删掉，也不能直接称为 DDIM；那是另一种有独立推导的采样方法。
 
-</details>
+
 
 <a id="dmd"></a>
 ## 05　学到这里，离 DMD 还有多远？
@@ -265,43 +265,42 @@ for t in 从最大等级走到最小等级():
 
 DMD 会比较两个这样的方向：一个来自预训练教师，另一个来自专门学习学生生成结果的辅助模型。为什么要相减、相减后怎么更新学生，是下一篇要解决的问题。这一篇不用急着把它们全部吃透。
 
-<details>
-<summary><strong>进阶：噪声预测与 score 的关系，完整推一遍</strong></summary>
+### 进阶：噪声预测与 score 的关系，完整推一遍
 
 令 $p_t(x_t)$ 表示真实数据加噪后的分布。score 定义为：
 
-$$
+```math
 s_t(x_t)=\nabla_{x_t}\log p_t(x_t).
-$$
+```
 
 对已知 $x_0$ 的加噪高斯分布求导：
 
-$$
+```math
 \nabla_{x_t}\log q(x_t\mid x_0)
 =-\frac{x_t-\sqrt{\bar\alpha_t}x_0}{1-\bar\alpha_t}
 =-\frac{\epsilon}{\sqrt{1-\bar\alpha_t}}.
-$$
+```
 
 但我们要的是不知道原图时的边缘分布 score。在固定 t、允许交换微分与积分的条件下：
 
-$$
+```math
 \begin{aligned}
 \nabla_{x_t}\log p_t(x_t)
 &=\frac{\int p_0(x_0)\nabla_{x_t}q(x_t\mid x_0)\,dx_0}{p_t(x_t)}\\
 &=\mathbb E_{x_0\mid x_t,t}[\nabla_{x_t}\log q(x_t\mid x_0)]\\
 &=-\frac{\mathbb E[\epsilon\mid x_t,t]}{\sqrt{1-\bar\alpha_t}}.
 \end{aligned}
-$$
+```
 
 平方误差的理想最优解是条件均值 $\mathbb E[\epsilon\mid x_t,t]$，因此训练好的网络给出近似：
 
-$$
+```math
 s_\theta(x_t,t)\approx-\frac{\epsilon_\theta(x_t,t)}{\sqrt{1-\bar\alpha_t}}.
-$$
+```
 
 用真实数据训练，就估计真实数据加噪后的 score；用学生生成的样本训练，就估计学生分布加噪后的 score。DMD 中的 fake 模型属于后者，它是辅助去噪器，不是学生生成器本身。
 
-</details>
+
 
 ---
 
