@@ -140,10 +140,10 @@ loss.backward()
 数学写法是：
 
 ```math
-x_t=\sqrt{\bar\alpha_t}\times x_0+\sqrt{1-\bar\alpha_t}\times \epsilon.
+x_t=\sqrt{\bar\alpha_t} x_0+\sqrt{1-\bar\alpha_t} \epsilon.
 ```
 
-这里的 $\times$ 就是乘号：先分别缩放原图和噪声，再把两项相加。论文里通常会省略这些乘号。
+系数与后面的图像或噪声写在一起，表示相乘：先分别缩放原图和噪声，再把两项相加。
 
 先把 $\bar\alpha_t$ 当成一个逐渐从接近 1 降到接近 0 的旋钮。旋钮大，原图影响大；旋钮小，噪声影响大。
 
@@ -172,7 +172,7 @@ L=\mathbb E\left[\lVert\epsilon-\epsilon_\theta(x_t,t)\rVert^2\right].
 
 ```math
 \hat x_0=
-\frac{x_t-\sqrt{1-\bar\alpha_t}\times \epsilon_\theta(x_t,t)}{\sqrt{\bar\alpha_t}}.
+\frac{x_t-\sqrt{1-\bar\alpha_t} \epsilon_\theta(x_t,t)}{\sqrt{\bar\alpha_t}}.
 ```
 
 头上的小帽子表示“估计”，不是保证正确的答案。它做两件事：减去估计的噪声，再补偿原图之前被缩小的幅度。
@@ -191,7 +191,7 @@ DDPM 先规定每一步加入多少噪声。设这个方差为 $\beta_t$，并�
 单步加噪写作：
 
 ```math
-x_t=\sqrt{\alpha_t}\times x_{t-1}+\sqrt{1-\alpha_t}\times\epsilon_t.
+x_t=\sqrt{\alpha_t} x_{t-1}+\sqrt{1-\alpha_t} \epsilon_t.
 ```
 
 “方差”描述随机波动的大小。给一个随机变量乘以系数 c，它的方差会乘以 c 的平方，所以这里使用平方根控制方差。
